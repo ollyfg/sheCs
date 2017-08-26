@@ -8,13 +8,14 @@ window.onload = function() {
         data: {
             boardSize: 40, // The board width and height, in em
             state: p4_fen2state(P4_INITIAL_BOARD), // Initialise a board. This can be randomised
+            "player_color": "white",
         }
     });
 }
 
 // The chess board
 Vue.component('chess-board', {
-    props: ["size", "state"],
+    props: ["size", "state", "player_color"],
     data: function() {
         return {
             "style": {
@@ -26,6 +27,20 @@ Vue.component('chess-board', {
                 "border-radius": "2.5%",
             },
             highlights: {},
+            p4_conversions: {
+                2: { piece: "pawn", color: "white", },
+                3: { piece: "pawn", color: "black", },
+                4: { piece: "rook", color: "white", },
+                5: { piece: "rook", color: "black", },
+                6: { piece: "knight", color: "white", },
+                7: { piece: "knight", color: "black", },
+                8: { piece: "bishop", color: "white", },
+                9: { piece: "bishop", color: "black", },
+                10: { piece: "king", color: "white", },
+                11: { piece: "king", color: "black", },
+                12: { piece: "queen", color: "white", },
+                13: { piece: "queen", color: "black", },
+            }
         };
     },
     computed: {
@@ -34,20 +49,6 @@ Vue.component('chess-board', {
         },
         board: function() {
             // Make our diplay board from p4wn's board state
-            piece_conversions = {
-                2: ["pawn", "white"],
-                3: ["pawn", "black"],
-                4: ["rook", "white"],
-                5: ["rook", "black"],
-                6: ["knight", "white"],
-                7: ["knight", "black"],
-                8: ["bishop", "white"],
-                9: ["bishop", "black"],
-                10: ["king", "white"],
-                11: ["king", "black"],
-                12: ["queen", "white"],
-                13: ["queen", "black"],
-            }
             pattern = [];
             var colCount = 0;   // x
             var rowCount = 0;   // y
@@ -58,10 +59,7 @@ Vue.component('chess-board', {
                 }
                 var piece = undefined;
                 if (this.state.board[i] !== 0) {
-                    piece = {
-                        piece: piece_conversions[this.state.board[i]][0],
-                        color: piece_conversions[this.state.board[i]][1],
-                    }
+                    piece = this.p4_conversions[this.state.board[i]];
                 }
                 pattern.push({
                     i: colCount + rowCount,
@@ -95,81 +93,100 @@ Vue.component('chess-board', {
         ></chess-square>
     </div>`,
     methods: {
-        movePiece: function (origin, after) {
-            // Move a piece, taking anything in the destination space
-            // Get the piece
-            if (this.pieces[origin[0]] && this.pieces[origin[0]][origin[1]]) {
-                var mover = this.pieces[origin[0]][origin[1]];
+        movePiece: function (origin, after, start_end) {
+            // Move a piece
+            if (start_end) {
+                // Already in P4WN notation - probably the computer's move
+                var originIndex = start_end[0];
+                var afterIndex = start_end[1];
             } else {
-                throw new Error("No piece at position " + origin);
+                // In visible notation, needs converting
+                originIndex = this.coordsToBoardIndex(origin);
+                afterIndex = this.coordsToBoardIndex(after);
             }
-            // See if we are taking anything
-            var taken;
-            if (this.pieces[after[0]] && this.pieces[after[0]][after[1]]) {
-                var taken = this.pieces[after[0]][after[1]];
-                console.log("The " + taken.color + " " + taken.piece + " at " + after + " has been taken!");
-                // onTake(taken);
+            var result = this.state.move(originIndex, afterIndex);
+            if (result.flags & P4_MOVE_FLAG_MATE) {
+                console.log("Checkmate!")
+            } else if (result.flags & P4_MOVE_FLAG_CHECK) {
+                console.log("Check!")
+            } else if (result.flags & P4_MOVE_FLAG_CAPTURE) {
+                console.log("Capture!")
             }
-            // Check if this is a pawn conversion
-            if (mover.piece === "pawn" && (
-                (mover.color === "white" && after[1] === 7) ||
-                (mover.color === "black" && after[1] === 0)
-            )) {
-                mover.piece = "queen";
-            }
-            this.pieces[after[0]][after[1]] = mover;
-            this.pieces[origin[0]][origin[1]] = undefined;
             this.clearHighlights();
+            if (this.state.to_play !== (this.player_color === "black"? 1:0)) {
+                this.doComputerTurn();
+            }
+        },
+        doComputerTurn: function () {
+            var computerMove = this.state.findmove(4);  // Shall we make this adjustable?
+            this.movePiece(undefined, undefined, computerMove);
         },
         getMovesFor: function(origin) {
-            var piece = this.pieces[origin[0]][origin[1]];
+            var piece = this.pieceAt(origin);
             var l = origin;
-            var moves = []
+            var moves = [];
+            // Check it's the color's turn
+            if (this.state.to_play !== (this.player_color === "black"? 1:0) ) {
+                return;
+            }
+            // Check that the moved piece is the right color
+            if (piece.color !== this.player_color) {
+                return;
+            }
             switch (piece.piece) {
                 case "pawn":
                     if (piece.color === "white") {
                         // Default move
-                        if (!this.pieces[l[0]][l[1] + 1]) {
+                        if (!this.pieceAt([ l[0], l[1] + 1 ])) {
                             moves.push([ l[0], l[1] + 1 ]);
                             // Start boost
-                            if (l[1] < 2 && !this.pieces[l[0]][l[1] + 2]) {
+                            if (l[1] < 2 && !this.pieceAt([ l[0], l[1] + 2 ])) {
                                 moves.push([ l[0], l[1] + 2 ]);
                             }
                         }
                         // Diagonal takes
-                        if (this.pieces[l[0] + 1][l[1] + 1]) {
-                            moves.push([ l[0] + 1, [l[1] + 1 ]]);
+                        if (this.pieceAt([ l[0] + 1, l[1] + 1 ])) {
+                            moves.push([ l[0] + 1, l[1] + 1 ]);
                         }
-                        if (this.pieces[l[0] - 1][l[1] + 1]) {
-                            moves.push([ l[0] - 1, [l[1] + 1 ]]);
+                        if (this.pieceAt([ l[0] - 1, l[1] + 1 ])) {
+                            moves.push([ l[0] - 1, l[1] + 1 ]);
                         }
                     } else {
                         // Default move
-                        if (!this.pieces[l[0]][l[1] - 1]) {
+                        if (!this.pieceAt([ l[0], l[1] - 1 ])) {
                             moves.push([ l[0], l[1] - 1 ]);
                             // Start boost
-                            if (l[1] > 5 && !this.pieces[l[0]][l[1] - 2]) {
+                            if (l[1] > 5 && !this.pieceAt([ l[0], l[1] - 2 ])) {
                                 moves.push([ l[0], l[1] - 2 ]);
                             }
                         }
                         // Diagonal takes
-                        if (this.pieces[l[0] + 1][l[1] - 1]) {
-                            moves.push([ l[0] + 1, [l[1] - 1 ]]);
+                        if (this.pieceAt([ l[0] + 1, l[1] - 1 ])) {
+                            moves.push([ l[0] + 1, l[1] - 1 ]);
                         }
-                        if (this.pieces[l[0] - 1][l[1] - 1]) {
-                            moves.push([ l[0] - 1, [l[1] - 1 ]]);
+                        if (this.pieceAt([ l[0] - 1, l[1] - 1 ])) {
+                            moves.push([ l[0] - 1, l[1] - 1 ]);
                         }
                     }
                     break;
                 case "knight":
-                    moves.push([ l[0] - 2, l[1] + 1 ]);
-                    moves.push([ l[0] + 2, l[1] + 1 ]);
-                    moves.push([ l[0] + 1, l[1] + 2 ]);
-                    moves.push([ l[0] - 1, l[1] + 2 ]);
-                    moves.push([ l[0] + 2, l[1] - 1 ]);
-                    moves.push([ l[0] + 1, l[1] - 2 ]);
-                    moves.push([ l[0] - 1, l[1] - 2 ]);
-                    moves.push([ l[0] - 2, l[1] - 1 ]);
+                    var possible_moves = [
+                        [ l[0] - 2, l[1] + 1 ],
+                        [ l[0] + 2, l[1] + 1 ],
+                        [ l[0] + 1, l[1] + 2 ],
+                        [ l[0] - 1, l[1] + 2 ],
+                        [ l[0] + 2, l[1] - 1 ],
+                        [ l[0] + 1, l[1] - 2 ],
+                        [ l[0] - 1, l[1] - 2 ],
+                        [ l[0] - 2, l[1] - 1 ],
+                    ];
+                    for (var i = 0; i < possible_moves.length; i++) {
+                        var m = possible_moves[i];
+                        if (this.pieceAt([ m[0], m[1] ]) && this.pieceAt([ m[0], m[1] ]).color === piece.color) {
+                            continue;
+                        }
+                        moves.push(m)
+                    }
                     break;
                 case "bishop":
                     var deltas = [
@@ -183,14 +200,10 @@ Vue.component('chess-board', {
                         for (var i = 1; i < 8; i++) {
                             var x = l[0] + (i * d[0]);
                             var y = l[1] + (i * d[1]);
-                            // Break if out of bounds sideways
-                            if (!this.pieces[x]) {
-                                break;
-                            }
                             // If there is a piece here...
-                            if (this.pieces[x][y]) {
+                            if (this.pieceAt([x,y])) {
                                 // If it's the same color, don't let us take it
-                                if (this.pieces[x][y].color === piece.color) {
+                                if (this.pieceAt([x,y]).color === piece.color) {
                                     break;
                                 } else {
                                     moves.push([x, y]);
@@ -217,14 +230,10 @@ Vue.component('chess-board', {
                         for (var i = 1; i < 8; i++) {
                             var x = l[0] + (i * d[0]);
                             var y = l[1] + (i * d[1]);
-                            // Break if out of bounds sideways
-                            if (!this.pieces[x]) {
-                                break;
-                            }
                             // If there is a piece here...
-                            if (this.pieces[x][y]) {
+                            if (this.pieceAt([x,y])) {
                                 // If it's the same color, don't let us take it
-                                if (this.pieces[x][y].color === piece.color) {
+                                if (this.pieceAt([x,y]).color === piece.color) {
                                     break;
                                 } else {
                                     moves.push([x, y]);
@@ -250,9 +259,8 @@ Vue.component('chess-board', {
                         var d = deltas[i];
                         var x = l[0] + d[0];
                         var y = l[1] + d[1];
-                        if (this.pieces[x] &&
-                            this.pieces[x][y] &&
-                            this.pieces[x][y].color === piece.color) {
+                        if (this.pieceAt([x,y]) &&
+                            this.pieceAt([x,y]).color === piece.color) {
                             continue;
                         }
                         moves.push([x,y]);
@@ -270,14 +278,10 @@ Vue.component('chess-board', {
                         for (var i = 1; i < 8; i++) {
                             var x = l[0] + (i * d[0]);
                             var y = l[1] + (i * d[1]);
-                            // Break if out of bounds sideways
-                            if (!this.pieces[x]) {
-                                break;
-                            }
                             // If there is a piece here...
-                            if (this.pieces[x][y]) {
+                            if (this.pieceAt([x,y])) {
                                 // If it's the same color, don't let us take it
-                                if (this.pieces[x][y].color === piece.color) {
+                                if (this.pieceAt([x,y]).color === piece.color) {
                                     break;
                                 } else {
                                     moves.push([x, y]);
@@ -297,6 +301,22 @@ Vue.component('chess-board', {
         },
         clearHighlights: function () {
             this.highlights = {};
+        },
+        coordsToBoardIndex: function (coords) {
+            var bigCoords = this.coordsToBigBoard(coords);
+            return bigCoords[0] + (bigCoords[1] * 10);
+        },
+        coordsToBigBoard: function (coords) {
+            return [coords[0] + 1, coords[1] + 2];
+        },
+        pieceAt: function (coords) {
+            return this.p4_conversions[
+                this.state.board[
+                    this.coordsToBoardIndex(
+                        coords
+                    )
+                ]
+            ];
         },
     },
 });
