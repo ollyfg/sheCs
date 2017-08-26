@@ -1,13 +1,15 @@
 // The vueJS source
 // By Olly F-G
 
-var app;
+var vm;
 window.onload = function() {
+    var p4_state = p4_fen2state(P4_INITIAL_BOARD);
+    p4_prepare(p4_state);
     vm = new Vue({
         el: '#vue',
         data: {
             boardSize: 40, // The board width and height, in em
-            state: p4_fen2state(P4_INITIAL_BOARD), // Initialise a board. This can be randomised
+            state: p4_state,
             "player_color": "white",
         }
     });
@@ -124,6 +126,7 @@ Vue.component('chess-board', {
         getMovesFor: function(origin) {
             var piece = this.pieceAt(origin);
             var l = origin;
+            var boardIndex = this.coordsToBoardIndex(origin);
             var moves = [];
             // Check it's the color's turn
             if (this.state.to_play !== (this.player_color === "black"? 1:0) ) {
@@ -133,166 +136,16 @@ Vue.component('chess-board', {
             if (piece.color !== this.player_color) {
                 return;
             }
-            switch (piece.piece) {
-                case "pawn":
-                    if (piece.color === "white") {
-                        // Default move
-                        if (!this.pieceAt([ l[0], l[1] + 1 ])) {
-                            moves.push([ l[0], l[1] + 1 ]);
-                            // Start boost
-                            if (l[1] < 2 && !this.pieceAt([ l[0], l[1] + 2 ])) {
-                                moves.push([ l[0], l[1] + 2 ]);
-                            }
-                        }
-                        // Diagonal takes
-                        if (this.pieceAt([ l[0] + 1, l[1] + 1 ])) {
-                            moves.push([ l[0] + 1, l[1] + 1 ]);
-                        }
-                        if (this.pieceAt([ l[0] - 1, l[1] + 1 ])) {
-                            moves.push([ l[0] - 1, l[1] + 1 ]);
-                        }
-                    } else {
-                        // Default move
-                        if (!this.pieceAt([ l[0], l[1] - 1 ])) {
-                            moves.push([ l[0], l[1] - 1 ]);
-                            // Start boost
-                            if (l[1] > 5 && !this.pieceAt([ l[0], l[1] - 2 ])) {
-                                moves.push([ l[0], l[1] - 2 ]);
-                            }
-                        }
-                        // Diagonal takes
-                        if (this.pieceAt([ l[0] + 1, l[1] - 1 ])) {
-                            moves.push([ l[0] + 1, l[1] - 1 ]);
-                        }
-                        if (this.pieceAt([ l[0] - 1, l[1] - 1 ])) {
-                            moves.push([ l[0] - 1, l[1] - 1 ]);
-                        }
-                    }
-                    break;
-                case "knight":
-                    var possible_moves = [
-                        [ l[0] - 2, l[1] + 1 ],
-                        [ l[0] + 2, l[1] + 1 ],
-                        [ l[0] + 1, l[1] + 2 ],
-                        [ l[0] - 1, l[1] + 2 ],
-                        [ l[0] + 2, l[1] - 1 ],
-                        [ l[0] + 1, l[1] - 2 ],
-                        [ l[0] - 1, l[1] - 2 ],
-                        [ l[0] - 2, l[1] - 1 ],
-                    ];
-                    for (var i = 0; i < possible_moves.length; i++) {
-                        var m = possible_moves[i];
-                        if (this.pieceAt([ m[0], m[1] ]) && this.pieceAt([ m[0], m[1] ]).color === piece.color) {
-                            continue;
-                        }
-                        moves.push(m)
-                    }
-                    break;
-                case "bishop":
-                    var deltas = [
-                        [1,1],
-                        [1,-1],
-                        [-1,1],
-                        [-1,-1],
-                    ];
-                    for (var j = 0; j < deltas.length; j++) {
-                        var d = deltas[j];
-                        for (var i = 1; i < 8; i++) {
-                            var x = l[0] + (i * d[0]);
-                            var y = l[1] + (i * d[1]);
-                            // If there is a piece here...
-                            if (this.pieceAt([x,y])) {
-                                // If it's the same color, don't let us take it
-                                if (this.pieceAt([x,y]).color === piece.color) {
-                                    break;
-                                } else {
-                                    moves.push([x, y]);
-                                    break;
-                                }
-                            }
-                            moves.push([x, y]);
-                        }
-                    }
-                    break;
-                case "queen":
-                    var deltas = [
-                        [0,1],
-                        [0,-1],
-                        [1,0],
-                        [-1,0],
-                        [1,1],
-                        [1,-1],
-                        [-1,1],
-                        [-1,-1],
-                    ];
-                    for (var j = 0; j < deltas.length; j++) {
-                        var d = deltas[j];
-                        for (var i = 1; i < 8; i++) {
-                            var x = l[0] + (i * d[0]);
-                            var y = l[1] + (i * d[1]);
-                            // If there is a piece here...
-                            if (this.pieceAt([x,y])) {
-                                // If it's the same color, don't let us take it
-                                if (this.pieceAt([x,y]).color === piece.color) {
-                                    break;
-                                } else {
-                                    moves.push([x, y]);
-                                    break;
-                                }
-                            }
-                            moves.push([x, y]);
-                        }
-                    }
-                    break;
-                case "king":
-                    var deltas = [
-                        [1,0],
-                        [1,1],
-                        [1,-1],
-                        [0,1],
-                        [0,-1],
-                        [-1,-1],
-                        [-1,1],
-                        [-1,0],
-                    ]
-                    for (var i = 0; i < deltas.length; i++) {
-                        var d = deltas[i];
-                        var x = l[0] + d[0];
-                        var y = l[1] + d[1];
-                        if (this.pieceAt([x,y]) &&
-                            this.pieceAt([x,y]).color === piece.color) {
-                            continue;
-                        }
-                        moves.push([x,y]);
-                    }
-                    break;
-                case "rook":
-                    var deltas = [
-                        [0,1],
-                        [0,-1],
-                        [1,0],
-                        [-1,0],
-                    ];
-                    for (var j = 0; j < deltas.length; j++) {
-                        var d = deltas[j];
-                        for (var i = 1; i < 8; i++) {
-                            var x = l[0] + (i * d[0]);
-                            var y = l[1] + (i * d[1]);
-                            // If there is a piece here...
-                            if (this.pieceAt([x,y])) {
-                                // If it's the same color, don't let us take it
-                                if (this.pieceAt([x,y]).color === piece.color) {
-                                    break;
-                                } else {
-                                    moves.push([x, y]);
-                                    break;
-                                }
-                            }
-                            moves.push([x, y]);
-                        }
-                    }
-                    break;
-            }
+            var boardIndexToCoords = this.boardIndexToCoords;
+            var moves = p4_parse(this.state, this.state.to_play, 0, 0)
+                .filter(function (move) {
+                    // Only moves fo rthis piece
+                    return move[1] === boardIndex;
+                })
+                .map(function (move) {
+                    // Return a pair of our board coords
+                    return boardIndexToCoords(move[2]);
+                });
             var highlights = {};
             for (var i = 0; i < moves.length; i++) {
                 highlights[moves[i]] = l;
@@ -308,6 +161,11 @@ Vue.component('chess-board', {
         },
         coordsToBigBoard: function (coords) {
             return [coords[0] + 1, coords[1] + 2];
+        },
+        boardIndexToCoords: function (index) {
+            var x = (index % 10) - 1;
+            var y = parseInt( index / 10 ) - 2;
+            return [x, y];
         },
         pieceAt: function (coords) {
             return this.p4_conversions[
