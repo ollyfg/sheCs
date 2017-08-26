@@ -3,17 +3,79 @@
 
 var vm;
 window.onload = function() {
-    var p4_state = p4_fen2state(P4_INITIAL_BOARD);
+    var initialString = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 1 1"
+    var p4_state = p4_fen2state(initialString);
     p4_prepare(p4_state);
     vm = new Vue({
         el: '#vue',
         data: {
-            boardSize: 40, // The board width and height, in em
+            boardSize: getDimension()[0], // The board width and height, in em
+            horizontal: getDimension()[1],
             state: p4_state,
             "player_color": "white",
+            difficulty: 100,    // 100 is normal, should go roughly from 0 - 200
+        },
+        computed: {
+            style: function () {
+                return {
+                    display: "flex",
+                    "flex-direction": this.horizontal? "row": "column",
+                }
+            }
         }
     });
 }
+window.onresize = function () {
+    vm.boardSize = getDimension()[0];
+    vm.horizontal = getDimension()[1];
+}
+
+// Get the best dimension to max the board size
+// The second return value is true if the view is horizontal
+function getDimension() {
+    var emWidth = document.querySelector("#em").clientWidth;
+    var bodyWidth = document.body.clientWidth;
+    var bodyHeight = document.body.clientHeight;
+    var dimension = Math.min(bodyWidth, bodyHeight);
+    return [Math.floor(dimension / emWidth), bodyWidth > bodyHeight];
+}
+
+// The title bar with menu button
+Vue.component('title-bar',  {
+    props: ["difficulty", "horizontal"],
+    data: function () {
+        return {
+            wrapperStyle: {
+                display: "flex",
+            }
+        };
+    },
+    computed: {
+        dynamicWrapperStyle: function () {
+            if (this.horizontal) {
+                return {
+                    order: 1,
+                    "flex-direction": "column",
+                    "align-items": "flex-start",
+                    "justify-content": "flex-start",
+                };
+            } else {
+                return {
+                    order: 0,
+                    "flex-direction": "row",
+                    "align-items": "center",
+                    "justify-content": "space-around",
+                };
+            }
+        },
+    },
+    template: `
+    <div v-bind:style="[wrapperStyle, dynamicWrapperStyle]">
+        <p>Difficulty: {{difficulty}}</p>
+        <a>Menu</a>
+    </div>
+    `,
+});
 
 // The chess board
 Vue.component('chess-board', {
@@ -23,10 +85,6 @@ Vue.component('chess-board', {
             "style": {
                 display: "flex",
                 "flex-wrap": "wrap",
-                width: this.size + "em",
-                width: this.size + "em",
-                border: (this.size * 0.05) + "em solid #E29D36",
-                "border-radius": "2.5%",
             },
             highlights: {},
             p4_conversions: {
@@ -46,8 +104,14 @@ Vue.component('chess-board', {
         };
     },
     computed: {
-        squareSize: function() {
+        squareSize: function () {
             return this.size/8;
+        },
+        dynamicStyle: function () {
+            return {
+                width: this.size + "em",
+                width: this.size + "em",
+            };
         },
         board: function() {
             // Make our diplay board from p4wn's board state
@@ -80,7 +144,7 @@ Vue.component('chess-board', {
         },
     },
     template: `
-    <div v-bind:style="style">
+    <div v-bind:style="[style, dynamicStyle]">
         <chess-square
             v-for="square in board"
             v-bind:color="(square.i%2) === 0? 'black': 'white'"
@@ -107,20 +171,44 @@ Vue.component('chess-board', {
                 afterIndex = this.coordsToBoardIndex(after);
             }
             var result = this.state.move(originIndex, afterIndex);
-            if (result.flags & P4_MOVE_FLAG_MATE) {
-                console.log("Checkmate!")
-            } else if (result.flags & P4_MOVE_FLAG_CHECK) {
-                console.log("Check!")
-            } else if (result.flags & P4_MOVE_FLAG_CAPTURE) {
-                console.log("Capture!")
-            }
             this.clearHighlights();
+            if (!result.ok) {
+                return;
+            }
+            if (result.flags & P4_MOVE_FLAG_MATE) {
+                var king = this.state.pieces[this.state.to_play].filter(function (piece) {
+                    return piece[0] === 10 || piece[0] === 11;
+                })[0];
+                console.log(king)
+                var h = this.highlights;
+                h[this.boardIndexToCoords(king[1])] = "danger";
+                this.highlights = h;
+                alert("Checkmate!")
+            } else if (result.flags & P4_MOVE_FLAG_CHECK) {
+                // Find the king, and highlight him
+                var king = this.state.pieces[this.state.to_play].filter(function (piece) {
+                    return piece[0] === 10 || piece[0] === 11;
+                })[0];
+                console.log(king)
+                var h = this.highlights;
+                h[this.boardIndexToCoords(king[1])] = "danger";
+                this.highlights = h;
+            } else if (result.flags & P4_MOVE_FLAG_CAPTURE) {
+                console.log("Capture!");
+            }
             if (this.state.to_play !== (this.player_color === "black"? 1:0)) {
+                // Let the computer have a go
                 this.doComputerTurn();
+            } else {
+                // Highlight the computer's turn
+                var h = this.highlights;
+                h[this.boardIndexToCoords(afterIndex)] = "prev_move";
+                h[this.boardIndexToCoords(originIndex)] = "prev_move";
+                this.highlights = h;
             }
         },
         doComputerTurn: function () {
-            var computerMove = this.state.findmove(4);  // Shall we make this adjustable?
+            var computerMove = this.state.findmove(2);  // Shall we make this adjustable?
             this.movePiece(undefined, undefined, computerMove);
         },
         getMovesFor: function(origin) {
@@ -137,15 +225,26 @@ Vue.component('chess-board', {
                 return;
             }
             var boardIndexToCoords = this.boardIndexToCoords;
+            var state = this.state;
             var moves = p4_parse(this.state, this.state.to_play, 0, 0)
-                .filter(function (move) {
-                    // Only moves fo rthis piece
-                    return move[1] === boardIndex;
-                })
-                .map(function (move) {
-                    // Return a pair of our board coords
-                    return boardIndexToCoords(move[2]);
-                });
+            .filter(function (move) {
+                // Only moves for this piece
+                return move[1] === boardIndex;
+            }).filter(function (move) {
+                // Filter out king moving into check
+                if (piece.piece === "king") {
+                    var legal = true;
+                    var m = p4_make_move(state, move[1], move[2], "queen");
+                    legal = !p4_check_check(state, (piece.color==="black"?1:0));
+                    p4_unmake_move(state, m);
+                    return legal;
+                } else {
+                    return true;
+                }
+            }).map(function (move) {
+                // Return a pair of our board coords
+                return boardIndexToCoords(move[2]);
+            });
             var highlights = {};
             for (var i = 0; i < moves.length; i++) {
                 highlights[moves[i]] = l;
@@ -185,34 +284,40 @@ Vue.component('chess-square',  {
     data: function() {
         return {
             style: {
-                width: this.size + "em",
-                height: this.size + "em",
                 display: "flex",
                 "justify-content": "center",
                 "align-items": "center",
+                "user-select": "none",
             }
         }
     },
     computed: {
-        dynamicStyles: function () {
-            var background;
-            var cursor = "default"
+        dynamicClasses: function () {
+            var classes = ["square", this.color];
             if (this.highlight) {
-                background = "#FF7777";
-                cursor = "pointer";
-            } else if (this.color === "black") {
-                background = "#BB9C7C";
-            } else {
-                background = "#F2F1D3";
+                if (this.highlight === "danger") {
+                    classes.push("danger");
+                } else if (this.highlight === "prev_move") {
+                    classes.push("prev_move");
+                } else {
+                    classes.push("highlighted");
+                }
             }
+            return classes;
+        },
+        dynamicStyle: function () {
             return {
-                "background-color": background,
-                "cursor": cursor,
+                width: this.size + "em",
+                height: this.size + "em",
             };
-        }
+        },
     },
     template: `
-    <div v-bind:style="[style, dynamicStyles]" v-on:click.capture="onClick($event)">
+    <div
+        v-bind:style="[style, dynamicStyle]"
+        v-on:click.capture="onClick($event)"
+        v-bind:class="dynamicClasses"
+    >
         <chess-piece
             v-if="piece"
             v-bind:color="piece.color"
@@ -225,7 +330,7 @@ Vue.component('chess-square',  {
     </div>`,
     methods: {
         onClick: function (event) {
-            if (this.highlight) {
+            if (this.highlight && this.highlight !== "danger") {
                 event.preventDefault();
                 event.stopPropagation();
                 this.moveTo(this.highlight, this.position);
@@ -242,33 +347,31 @@ Vue.component('chess-piece',  {
     data: function() {
         return {
             style: {
-                width: (this.squareSize * 0.8) + "em",
-                height: (this.squareSize * 0.8) + "em",
-                "text-align": "center",
-                "line-height": (((this.squareSize * 0.8) / 2) + 1) + "em",
-                "border-radius": "50%",
-                "border": "3px solid #000000",
-                "cursor": "pointer",
+                cursor: "pointer",
+                "user-select": "none",
+
             },
             sourceOfHighlights: false,
         }
     },
     computed: {
-        reactiveStyles: function() {
+        imageSrc: function () {
+            return "img/" + this.color + "_" + this.piece + ".svg";
+        },
+        dynamicStyle: function () {
             return {
-                "background-color": this.color === "black"? "#45403B":"#F2F1D3",
-                "color": this.color === "black"? "#F2F1D3":"#45403B",
-            }
+                height: (this.squareSize * 0.8) + "em",
+            };
         },
     },
     template: `
-    <div
-        v-bind:style="[style, reactiveStyles]"
+    <img
+        v-bind:style="[style, dynamicStyle]"
         key="color+piece"
         v-on:click.stop="sendHighlights"
+        v-bind:src="imageSrc"
     >
-    {{ piece }}
-    </div>`,
+    `,
     methods: {
 
         sendHighlights: function() {
