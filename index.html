@@ -4,11 +4,15 @@
     <meta charset="utf-8">
     <title>Shecs</title>
     <script src="https://unpkg.com/vue"></script>
+    <script src="p4wn-engine.js"></script>
     <script src="source.js"></script>
 </head>
 <body>
     <div id="vue">
-        <chess-board v-bind:size="boardSize"></chess-board>
+        <chess-board
+            v-bind:size="boardSize"
+            v-bind:state="state"
+        ></chess-board>
     </div>
 </body>
 </html>
