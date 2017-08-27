@@ -73,7 +73,7 @@ window.onload = function() {
             horizontal: getDimension()[1],
             state: p4_state,
             "player_color": "white",
-            difficulty: 0,    // 0 is balanced
+            difficulty: 50,    // 50 is balanced
         },
         computed: {
             style: function () {
@@ -91,10 +91,10 @@ window.onload = function() {
             },
         },
         methods: {
-            newGame: function (color, difficulty) {
-                this.difficulty = difficulty || 0;
-                this.player_color = color || "white";
-                var initialString = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 1 1"
+            newGame: function () {
+                difficulty = this.difficulty
+                color = this.player_color;
+                var initialString = this.difficultyToFENString(difficulty, color);
                 var p4_state = p4_fen2state(initialString);
                 p4_prepare(p4_state);
                 this.state = p4_state;
@@ -118,7 +118,102 @@ window.onload = function() {
                 this.$store.commit("setMenu", "none");
                 this.$store.commit("toggleInfoPage");
                 return;
-            }
+            },
+            difficultyToFENString: function (difficulty, player_color) {
+                // First up, decide on which pieces each side will have.
+                // To do this, we draw 3 pieces from a bag of infinite pieces
+                // with a pawn:knight:bishop:rook:queen ratio of 4:2:2:2:1.
+                // If a random number is smaller than the difficulty (in
+                // decimal form - ie. 50% -> 0.5), then the player gets the
+                // best piece. If the number is greater than the difficulty,
+                // the opponent gets the best piece.
+                // Whoever does not get the best piece gets the worst piece.
+                // This is repeated 15 times, and then a king each is added at
+                // the end.
+                var wins = [0,0];
+                function getPieces(multiplier) {
+                    var pieces = [
+                        "pawn",
+                        "pawn",
+                        "pawn",
+                        "pawn",
+                        "knight",
+                        "knight",
+                        "bishop",
+                        "bishop",
+                        "rook",
+                        "rook",
+                        "queen"];
+                    // Draw 3
+                    var triplet = [
+                        pieces[ parseInt(Math.random() * pieces.length) ],
+                        pieces[ parseInt(Math.random() * pieces.length) ],
+                        pieces[ parseInt(Math.random() * pieces.length) ],
+                    ];
+                    // Put the best piece first
+                    triplet = triplet.sort(function (a, b) {
+                        return pieces.indexOf(a) - pieces.indexOf(b);
+                    });
+                    // Apply our multiplier
+                    if (Math.random() < multiplier) {
+                        triplet = triplet.reverse();
+                        wins[1] += 1;
+                    } else {
+                        wins[0] += 1;
+                    }
+                    return [triplet[0], triplet[2]];
+                }
+                function transformer(x) {
+                    return x
+                }
+                var multiplier = player_color === "white"? (difficulty/100) : (1-(difficulty/100));
+                var whitePieces = [];
+                var blackPieces = [];
+                for (var i=0; i < 15; i++) {
+                    var pieces = getPieces(multiplier);
+                    whitePieces.push(pieces[0]);
+                    blackPieces.push(pieces[1]);
+                }
+                whitePieces.splice(4, 0, "king");
+                blackPieces.splice(12, 0, "king");
+                console.log("White won the toss " + wins[0] + " times, black won " + wins[1] + " times.")
+
+                // Now we have the pieces, turn them into a FEN string
+                var whiteFENPieces = {
+                    king: "k",
+                    queen: "q",
+                    rook: "r",
+                    knight: "n",
+                    bishop: "b",
+                    pawn: "p",
+                };
+                var blackFENPieces = {
+                    king: "K",
+                    queen: "Q",
+                    rook: "R",
+                    knight: "N",
+                    bishop: "B",
+                    pawn: "P",
+                };
+                var fenString = "";
+                for (var i = 0; i < 8; i++) {
+                    fenString += whiteFENPieces[whitePieces[i]];
+                }
+                fenString += "/";
+                for (var i = 8; i < 16; i++) {
+                    fenString += whiteFENPieces[whitePieces[i]];
+                }
+                fenString += "/8/8/8/8/";
+                for (var i = 0; i < 8; i++) {
+                    fenString += blackFENPieces[blackPieces[i]];
+                }
+                fenString += "/";
+                for (var i = 8; i < 16; i++) {
+                    fenString += blackFENPieces[blackPieces[i]];
+                }
+                fenString += " w - - 1 1";
+                return fenString;
+            },
         },
         components: {
             "chess-board": chessBoard,
@@ -717,8 +812,9 @@ var infoPane = {
 
             <h1>What Does Difficulty Really Mean?</h1>
             <p>In this game, difficulty does <em>not</em> change the intelligence of the computer player.</p>
-            <p>Instead it selects how much better one team will be than the other. A difficulty of 0 is fairly even - you might get unusual pieces in unusual places, but the opponent will have simmilar strength pieces.</p>
+            <p>Instead it selects how much better one team will be than the other. A difficulty of 50 is fairly even - you might get unusual pieces in unusual places, but the opponent will have simmilar strength pieces.</p>
             <p>Setting difficulty to a negative number will make your pieces better, and the opponent's worse, while a positive number will do the opposite.</p>
+            <p>Of course, there is a random factor in the piece selection, so you might run into a hard game even with low difficulty.</p>
 
             <h1>Credits</h1>
             <p>This app was created by <a href="http://www.ollyfg.com">Oliver Fawcett-Griffiths</a>, a software developer from New Zealand.</p>
