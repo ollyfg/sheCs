@@ -1,0 +1,50 @@
+body, html {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+}
+#em {
+    width: 1em;
+    visibility: hidden;
+}
+h1::before {
+    content: "";
+    display: inline-block;
+    width: 0.8em;
+    height: 0.8em;
+    background-image: url("img/black_knight.svg");
+    margin-right: 0.25em;
+}
+a {
+    color: #2AAAD2;
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+}
+
+.square.highlighted {
+    cursor: pointer;
+}
+.square.highlighted.black {
+    background-color: #64819C;
+}
+.square.highlighted.white {
+    background-color: #B7CADD;
+}
+.square.black {
+    background-color: #BB9C7C;
+}
+.square.white {
+    background-color: #F2F1D3;
+}
+.square.danger {
+    background-color: #E03030;
+}
+.square.prev_move {
+    background-color: #E7E687;
+}
+.lightbutton:hover, .lightbutton:active {
+    background-color: #E9E9E9;
+}

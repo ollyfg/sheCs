@@ -3,44 +3,11 @@
 <head>
     <meta charset="utf-8">
     <title>Shecs</title>
+    <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/vue"></script>
     <script src="https://unpkg.com/vuex@2.0.0"></script>
     <script src="p4wn-engine.js"></script>
     <script src="source.js"></script>
-    <style>
-    .square.highlighted {
-        cursor: pointer;
-    }
-    .square.highlighted.black {
-        background-color: #64819C;
-    }
-    .square.highlighted.white {
-        background-color: #B7CADD;
-    }
-    .square.black {
-        background-color: #BB9C7C;
-    }
-    .square.white {
-        background-color: #F2F1D3;
-    }
-    .square.danger {
-        background-color: #E03030;
-    }
-    .square.prev_move {
-        background-color: #E7E687;
-    }
-    #em {
-        width: 1em;
-        visibility: hidden;
-    }
-    body, html {
-        width: 100%;
-        height: 100%;
-        padding: 0;
-        margin: 0;
-    }
-
-    </style>
 </head>
 <body>
     <div id="vue" v-bind:style="style">
@@ -52,7 +19,6 @@
             <piece-graveyard
                 v-if="horizontal"
                 v-bind:horizontal="horizontal"
-                v-bind:pieces="graveyard"
                 v-bind:size="boardSize/8"
             ></piece-graveyard>
         </title-bar>
@@ -60,12 +26,10 @@
             v-bind:size="boardSize/8"
             v-bind:state="state"
             v-bind:player_color="player_color"
-            v-bind:graveyard="graveyard"
         ></chess-board>
         <piece-graveyard
             v-if="!horizontal"
             v-bind:horizontal="horizontal"
-            v-bind:pieces="graveyard"
             v-bind:size="boardSize/8"
         ></piece-graveyard>
         <menu-overlay
@@ -94,7 +58,7 @@
                     Resign
                 </menu-item>
             </template>
-            <template v-if="menuType==='start'">
+            <template v-if="menuType==='welcome'">
                 <menu-item
                     v-bind:size="boardSize/8"
                     v-bind:onclick="newGame"
@@ -111,6 +75,11 @@
                 </menu-item>
             </template>
         </menu-overlay>
+        <info-pane
+            v-if="showInfoPage"
+            v-bind:size="boardSize/8"
+            v-bind:horizontal="horizontal"
+        ></info-pane>
     </div>
     <div id="em"></div>
 </body>

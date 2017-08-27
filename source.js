@@ -27,7 +27,12 @@ window.onload = function() {
         state: {
             inplay: false,
             highlights: {},
-            menuType: "start",
+            menuType: "welcome",
+            graveyard: {
+                black: [],
+                white: [],
+            },
+            infoPane: false,
         },
         mutations: {
             setPlaying: function (state, playing) {
@@ -46,6 +51,18 @@ window.onload = function() {
             setMenu: function (state, menuType) {
                 state.menuType = menuType;
             },
+            exhumateAll: function (state) {
+                state.graveyard = {
+                    black: [],
+                    white: [],
+                };
+            },
+            buryCorpse: function (state, corpse) {
+                state.graveyard[corpse.color].push(corpse.piece);
+            },
+            toggleInfoPage: function (state) {
+                state.infoPane = !state.infoPane;
+            },
         },
     });
     vm = new Vue({
@@ -57,11 +74,6 @@ window.onload = function() {
             state: p4_state,
             "player_color": "white",
             difficulty: 0,    // 0 is balanced
-            graveyard: {
-                black: [],
-                white: [],
-            },
-
         },
         computed: {
             style: function () {
@@ -73,7 +85,10 @@ window.onload = function() {
             },
             menuType: function () {
                 return this.$store.state.menuType;
-            }
+            },
+            showInfoPage: function () {
+                return this.$store.state.infoPane;
+            },
         },
         methods: {
             newGame: function (color, difficulty) {
@@ -86,6 +101,7 @@ window.onload = function() {
                 this.$store.commit("setPlaying", true);
                 this.$store.commit("clearHighlights");
                 this.$store.commit("setMenu", "none");
+                this.$store.commit("exhumateAll");
             },
             pauseMenuClose: function () {
                 this.$store.commit("setMenu", "none");
@@ -94,11 +110,13 @@ window.onload = function() {
                 var initialString = "8/8/8/8/8/8/8/8 w - - 1 1"
                 var p4_state = p4_fen2state(initialString);
                 this.state = p4_state;
-                this.$store.commit("setMenu", "start");
+                this.$store.commit("setMenu", "welcome");
                 this.$store.commit("clearHighlights");
+                this.$store.commit("exhumateAll");
             },
             showInfo: function () {
-                console.log("Not implemented!")
+                this.$store.commit("setMenu", "none");
+                this.$store.commit("toggleInfoPage");
                 return;
             }
         },
@@ -109,12 +127,14 @@ window.onload = function() {
             "menu-overlay": menuOverlay,
             "menu-title": menuTitle,
             "menu-item": menuItem,
+            "info-pane": infoPane,
         },
     });
 }
 
+// The chess piece graveyard
 var graveyard = {
-    props: ["horizontal", "pieces", "size"],
+    props: ["horizontal", "size"],
     data: function () {
         return {
             style: {
@@ -151,25 +171,27 @@ var graveyard = {
                 width: (this.size * 0.75) + "em",
             };
         },
+        pieces: function () {
+            return this.$store.state.graveyard;
+        },
     },
     template: `
     <div
-    v-bind:style="[style, dynamicStyle]"
+        v-bind:style="[style, dynamicStyle]"
     >
-    <div
-    v-bind:style="rowStyle"
-    v-for="(colored_pieces, color) in pieces"
-    >
-    <img
-    v-for="piece in colored_pieces"
-    v-bind:src="'img/'+color+'_'+piece+'.svg'"
-    v-bind:style="imageStyle"
-    >
-    </div>
+        <div
+            v-bind:style="rowStyle"
+            v-for="(colored_pieces, color) in pieces"
+        >
+            <img
+                v-for="piece in colored_pieces"
+                v-bind:src="'img/'+color+'_'+piece+'.svg'"
+                v-bind:style="imageStyle"
+            >
+        </div>
     </div>
     `,
 };
-// The chess piece graveyard
 
 // The title bar with menu button
 var titleBar = {
@@ -218,10 +240,10 @@ var titleBar = {
     template: `
     <div v-bind:style="[wrapperStyle, dynamicWrapperStyle]">
         <p v-bind:style="[itemStyle, dynamicItemStyle]">Difficulty: {{difficulty}}</p>
-        <a
+        <span class="lightbutton"
             v-bind:style="[itemStyle, , dynamicItemStyle, dynamicMenuStyle]"
             v-on:click="bringUpPauseMenu"
-        >Menu</a>
+        >Menu</span>
         <slot></slot>
     </div>
     `,
@@ -230,7 +252,7 @@ var titleBar = {
             if (this.$store.state.inplay) {
                 this.$store.commit("setMenu", "pause");
             } else {
-                this.$store.commit("setMenu", "start");
+                this.$store.commit("setMenu", "welcome");
             }
         },
     },
@@ -274,6 +296,7 @@ var menuItem = {
                 padding: "0.5em 0",
                 "text-align": "center",
                 "margin-top": 0,
+                "margin-bottom": 0,
                 cursor: "pointer",
             };
         },
@@ -299,7 +322,7 @@ var menuItem = {
         v-bind:style="style"
         v-on:mouseover="setSideMargin(1.5)"
         v-on:mouseout="setSideMargin(1)"
-        v-on:click="onClick"
+        v-on:click.stop="onClick"
     >
         <img src="img/white_pawn.svg" v-bind:style="leftMarkerStyle">
         <slot></slot>
@@ -324,20 +347,15 @@ var menuOverlay = {
             var style = {
                 display: "flex",
                 "flex-direction": "column",
-                "justify-content": "center",
+                "justify-content": "space-around",
                 "align-items": "stretch",
                 "background-color": "#33333388",
                 position: "absolute",
                 top: 0,
                 color: "#FFFFFF",
+                width: "100%",
+                height: "100%",
             };
-            if (this.horizontal) {
-                style["width"] = "100%";
-                style["height"] = (this.size * 8) + "em";
-            } else {
-                style["height"] = "100%";
-                style["width"] = (this.size * 8) + "em";
-            }
             return style
         },
     },
@@ -571,7 +589,7 @@ var chessBoard = {
                 this.$store.commit("updateHighlights", h);
             } else if (result.flags & P4_MOVE_FLAG_CAPTURE) {
                 var piece = this.p4_conversions[potential_capture];
-                this.graveyard[piece.color].push(piece.piece);
+                this.$store.commit("buryCorpse", piece);
             }
             if (this.state.to_play !== (this.player_color === "black"? 1:0)) {
                 // Let the computer have a go
@@ -657,5 +675,77 @@ var chessBoard = {
     components: {
         "chess-square": chessSquare,
         "chess-piece": chessPiece,
+    },
+};
+
+// The info pane
+var infoPane = {
+    props: ["horizontal", "size"],
+    data: function () {
+        return {
+            guardStyle: {
+                display: "flex",
+                "flex-direction": "column",
+                "justify-content": "flex-start",
+                "align-items": "center",
+                "background-color": "#33333388",
+                position: "absolute",
+                top: 0,
+                width: "100%",
+                height: "100%",
+            },
+            pageStyle: {
+                "background-color": "#FFFFFF",
+                "flex-grow": 1,
+                "overflow-y": "auto",
+                "max-width": (this.size * 8) + "em",
+                padding: "1em",
+            }
+        };
+    },
+    template: `
+    <div v-bind:style="guardStyle" v-on:click="hideInfo">
+        <div
+            v-bind:style="pageStyle"
+            v-once
+        >
+            <h1>How Do I Play?</h1>
+            <p>Simply go back to the main menu (hit the "back" button below), choose your level of difficulty, which color you would like to play as, and press "New Game".</p>
+            <p>You will be presented with a fairly familiar board!</p>
+            <p>To make a move, press on the piece you have chosen to move, and the possible moves will be highlighted. Press on one of the highlights to make the move.</p>
+            <p>You can pause or quit the game at any time using the menu button found to the top-right of the board.</p>
+
+            <h1>What Does Difficulty Really Mean?</h1>
+            <p>In this game, difficulty does <em>not</em> change the intelligence of the computer player.</p>
+            <p>Instead it selects how much better one team will be than the other. A difficulty of 0 is fairly even - you might get unusual pieces in unusual places, but the opponent will have simmilar strength pieces.</p>
+            <p>Setting difficulty to a negative number will make your pieces better, and the opponent's worse, while a positive number will do the opposite.</p>
+
+            <h1>Credits</h1>
+            <p>This app was created by <a href="http://www.ollyfg.com">Oliver Fawcett-Griffiths</a>, a software developer from New Zealand.</p>
+
+            <p>It was created using <a href="https://vuejs.org/">vueJS</a>, and is backed by the wonderful <a href="http://p4wn.sourceforge.net/">P4WN</a> Javascript chess engine.</p>
+
+            <p>The idea was taken from Zach Gage's <a href="http://reallybadchess.com/">Really Bad Chess</a>. Really Bad Chess is a great game, however it is encumbered by advertising and is non-free software.</p>
+
+            <p>This app is free and open source under the XXX Licence, and the source can be found on <a href="">GitLab</a> or <a href="">GitHub</a>.</p>
+        </div>
+        <menu-item
+            v-bind:size="this.size"
+            v-bind:onclick="hideInfo"
+            bgcolor="#BD2727"
+            fontcolor="#F1F1F1"
+        >
+            Back
+        </menu-item>
+    </div>
+    `,
+    methods: {
+        hideInfo: function () {
+            this.$store.commit("toggleInfoPage");
+            this.$store.commit("setMenu", "welcome");
+        },
+    },
+    components: {
+        "menu-item": menuItem,
     },
 };
