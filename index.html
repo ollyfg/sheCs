@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <title>Shecs</title>
     <script src="https://unpkg.com/vue"></script>
+    <script src="https://unpkg.com/vuex@2.0.0"></script>
     <script src="p4wn-engine.js"></script>
     <script src="source.js"></script>
     <style>
@@ -46,11 +47,17 @@
         <title-bar
             v-bind:difficulty="difficulty"
             v-bind:horizontal="horizontal"
-            v-bind:graveyard="graveyard"
-            v-bind:size="boardSize"
-        ></title-bar>
+            v-bind:size="boardSize/8"
+        >
+            <piece-graveyard
+                v-if="horizontal"
+                v-bind:horizontal="horizontal"
+                v-bind:pieces="graveyard"
+                v-bind:size="boardSize/8"
+            ></piece-graveyard>
+        </title-bar>
         <chess-board
-            v-bind:size="boardSize"
+            v-bind:size="boardSize/8"
             v-bind:state="state"
             v-bind:player_color="player_color"
             v-bind:graveyard="graveyard"
@@ -61,6 +68,49 @@
             v-bind:pieces="graveyard"
             v-bind:size="boardSize/8"
         ></piece-graveyard>
+        <menu-overlay
+            v-if="menuType !== 'none'"
+            v-bind:size="boardSize/8"
+            v-bind:horizontal="horizontal"
+        >
+            <menu-title
+                v-bind:size="boardSize/8"
+            >
+                {{ menuType[0].toUpperCase() + menuType.slice(1) }}
+            </menu-title>
+            <template v-if="menuType==='pause'">
+                <menu-item
+                    v-bind:size="boardSize/8"
+                    v-bind:onclick="pauseMenuClose"
+                >
+                    Resume
+                </menu-item>
+                <menu-item
+                    v-bind:size="boardSize/8"
+                    v-bind:onclick="pauseMenuResign"
+                    bgcolor="#BD2727"
+                    fontcolor="#F1F1F1"
+                >
+                    Resign
+                </menu-item>
+            </template>
+            <template v-if="menuType==='start'">
+                <menu-item
+                    v-bind:size="boardSize/8"
+                    v-bind:onclick="newGame"
+                    bgcolor="#BD2727"
+                    fontcolor="#F1F1F1"
+                >
+                    Start Game
+                </menu-item>
+                <menu-item
+                    v-bind:size="boardSize/8"
+                    v-bind:onclick="showInfo"
+                >
+                    About This Game
+                </menu-item>
+            </template>
+        </menu-overlay>
     </div>
     <div id="em"></div>
 </body>
