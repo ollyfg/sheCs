@@ -46,12 +46,21 @@
         <title-bar
             v-bind:difficulty="difficulty"
             v-bind:horizontal="horizontal"
+            v-bind:graveyard="graveyard"
+            v-bind:size="boardSize"
         ></title-bar>
         <chess-board
             v-bind:size="boardSize"
             v-bind:state="state"
             v-bind:player_color="player_color"
+            v-bind:graveyard="graveyard"
         ></chess-board>
+        <piece-graveyard
+            v-if="!horizontal"
+            v-bind:horizontal="horizontal"
+            v-bind:pieces="graveyard"
+            v-bind:size="boardSize/8"
+        ></piece-graveyard>
     </div>
     <div id="em"></div>
 </body>

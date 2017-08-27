@@ -13,16 +13,21 @@ window.onload = function() {
             horizontal: getDimension()[1],
             state: p4_state,
             "player_color": "white",
-            difficulty: 100,    // 100 is normal, should go roughly from 0 - 200
+            difficulty: 0,    // 0 is balanced
+            graveyard: {
+                black: [],
+                white: [],
+            },
         },
         computed: {
             style: function () {
                 return {
                     display: "flex",
                     "flex-direction": this.horizontal? "row": "column",
+                    "align-items": this.horizontal? "stretch": "center",
                 }
             }
-        }
+        },
     });
 }
 window.onresize = function () {
@@ -41,13 +46,17 @@ function getDimension() {
 }
 
 // The title bar with menu button
-Vue.component('title-bar',  {
-    props: ["difficulty", "horizontal"],
+Vue.component('title-bar', {
+    props: ["difficulty", "horizontal", "graveyard", "size"],
     data: function () {
         return {
             wrapperStyle: {
                 display: "flex",
-            }
+            },
+            itemStyle: {
+                margin: 0,
+                order: 1,
+            },
         };
     },
     computed: {
@@ -68,18 +77,92 @@ Vue.component('title-bar',  {
                 };
             }
         },
+        dynamicMenuStyle: function () {
+            return {
+                order: this.horizontal? 0: 1,
+            };
+        },
+        dynamicItemStyle: function () {
+            return {
+                padding: (this.size/32) + "em",
+            };
+        },
     },
     template: `
     <div v-bind:style="[wrapperStyle, dynamicWrapperStyle]">
-        <p>Difficulty: {{difficulty}}</p>
-        <a>Menu</a>
+        <p v-bind:style="[itemStyle, dynamicItemStyle]">Difficulty: {{difficulty}}</p>
+        <a v-bind:style="[itemStyle, , dynamicItemStyle, dynamicMenuStyle]">Menu</a>
+        <piece-graveyard
+            v-if="horizontal"
+            v-bind:horizontal="horizontal"
+            v-bind:pieces="graveyard"
+            v-bind:size="size/8"
+        ></piece-graveyard>
+    </div>
+    `,
+});
+
+// The chess piece graveyard
+Vue.component('piece-graveyard', {
+    props: ["horizontal", "pieces", "size"],
+    data: function () {
+        return {
+            style: {
+                display: "flex",
+                order: 3,
+                "flex-wrap": "wrap",
+                "flex-grow": 1,
+            },
+            rowStyle: {
+                display: "flex",
+                "flex-direction": "row",
+            },
+        };
+    },
+    computed: {
+        dynamicStyle: function () {
+            if (this.horizontal) {
+                return {
+                    "flex-direction": "column",
+                    "margin-left": (this.size * 0.25) + "em",
+                    "justify-content": "center",
+                };
+            } else {
+                return {
+                    "flex-direction": "row",
+                    "margin-top": (this.size * 0.25) + "em",
+                    width: (this.size * 8) + "em",
+                    "justify-content": "space-between",
+                };
+            }
+        },
+        imageStyle: function () {
+            return {
+                width: (this.size * 0.75) + "em",
+            };
+        },
+    },
+    template: `
+    <div
+        v-bind:style="[style, dynamicStyle]"
+    >
+        <div
+            v-bind:style="rowStyle"
+            v-for="(colored_pieces, color) in pieces"
+        >
+            <img
+                v-for="piece in colored_pieces"
+                v-bind:src="'img/'+color+'_'+piece+'.svg'"
+                v-bind:style="imageStyle"
+            >
+        </div>
     </div>
     `,
 });
 
 // The chess board
 Vue.component('chess-board', {
-    props: ["size", "state", "player_color"],
+    props: ["size", "state", "player_color", "graveyard"],
     data: function() {
         return {
             "style": {
@@ -170,6 +253,7 @@ Vue.component('chess-board', {
                 originIndex = this.coordsToBoardIndex(origin);
                 afterIndex = this.coordsToBoardIndex(after);
             }
+            var potential_capture = this.state.board[afterIndex];
             var result = this.state.move(originIndex, afterIndex);
             this.clearHighlights();
             if (!result.ok) {
@@ -179,7 +263,6 @@ Vue.component('chess-board', {
                 var king = this.state.pieces[this.state.to_play].filter(function (piece) {
                     return piece[0] === 10 || piece[0] === 11;
                 })[0];
-                console.log(king)
                 var h = this.highlights;
                 h[this.boardIndexToCoords(king[1])] = "danger";
                 this.highlights = h;
@@ -189,12 +272,12 @@ Vue.component('chess-board', {
                 var king = this.state.pieces[this.state.to_play].filter(function (piece) {
                     return piece[0] === 10 || piece[0] === 11;
                 })[0];
-                console.log(king)
                 var h = this.highlights;
                 h[this.boardIndexToCoords(king[1])] = "danger";
                 this.highlights = h;
             } else if (result.flags & P4_MOVE_FLAG_CAPTURE) {
-                console.log("Capture!");
+                var piece = this.p4_conversions[potential_capture];
+                this.graveyard[piece.color].push(piece.piece);
             }
             if (this.state.to_play !== (this.player_color === "black"? 1:0)) {
                 // Let the computer have a go
@@ -279,7 +362,7 @@ Vue.component('chess-board', {
 });
 
 // A chess square
-Vue.component('chess-square',  {
+Vue.component('chess-square', {
     props: ["color", "size", "position", "piece", "hh", "ch", "highlight", "moveTo"],
     data: function() {
         return {
@@ -342,7 +425,7 @@ Vue.component('chess-square',  {
 });
 
 // A chess piece
-Vue.component('chess-piece',  {
+Vue.component('chess-piece', {
     props: ["color", "piece", "squareSize", "position", "onClick", "clearHighlights"],
     data: function() {
         return {
