@@ -979,6 +979,7 @@ var difficultySelector = {
                     type="range"
                     min=0
                     max=100
+                    v-bind:value="difficulty"
                     id="difficultySelector">
                 100%
             </div>
