@@ -1,0 +1,20 @@
+{
+    "short_name": "sheCs",
+    "name": "sheCs",
+    "icons": [
+        {
+            "src": "img/white_king.svg",
+                "type": "image/svg",
+                "sizes": "512x512"
+        },
+        {
+            "src": "img/white_king.png",
+            "type": "image/p4_new_game",
+            "sizes": "144x144"
+        }
+    ],
+    "start_url": "index.html",
+    "background_color": "#BD2727",
+    "theme_color": "#BD2727",
+    "display": "standalone"
+}

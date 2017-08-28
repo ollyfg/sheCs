@@ -1,6 +1,20 @@
 // The vueJS source
 // By Olly F-G
 
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js').then(function(registration) {
+            if (debug) {
+                console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            }
+        }, function(err) {
+            if (debug) {
+                console.log('ServiceWorker registration failed: ', err);
+            }
+        });
+    });
+}
+
 window.onresize = function () {
     vm.boardSize = getDimension()[0];
     vm.horizontal = getDimension()[1];
@@ -299,6 +313,7 @@ var graveyard = {
                 v-for="piece in colored_pieces"
                 v-bind:src="'img/'+color+'_'+piece+'.svg'"
                 v-bind:style="imageStyle"
+                v-bind:alt="'A ' + color + ' ' + piece"
             >
         </div>
     </div>
@@ -344,6 +359,8 @@ var titleBar = {
             return {
                 order: this.horizontal? 0: 1,
                 cursor: "pointer",
+                "background-color": "#FFFFFF",
+                color: "#000000",
             };
         },
         dynamicItemStyle: function () {
@@ -351,9 +368,12 @@ var titleBar = {
                 padding: (this.size/4) + "em",
             };
         },
+        mainMenuShowing: function () {
+            return this.$store.state.menuType === "welcome";
+        },
     },
     template: `
-    <div v-bind:style="[wrapperStyle, dynamicWrapperStyle]">
+    <div v-bind:style="[wrapperStyle, dynamicWrapperStyle]" v-if="!mainMenuShowing">
         <p v-bind:style="[itemStyle, dynamicItemStyle]">Difficulty: {{difficulty}}</p>
         <span class="lightbutton"
             v-bind:style="[itemStyle, , dynamicItemStyle, dynamicMenuStyle]"
@@ -443,9 +463,9 @@ var menuItem = {
         v-on:mouseout="setSideMargin(1)"
         v-on:click.stop="onClick"
     >
-        <img v-bind:src="markerURL" v-bind:style="leftMarkerStyle">
+        <img v-bind:src="markerURL" v-bind:style="leftMarkerStyle" alt="Decorative knight">
         <slot></slot>
-        <img v-bind:src="markerURL" v-bind:style="rightMarkerStyle">
+        <img v-bind:src="markerURL" v-bind:style="rightMarkerStyle" alt="Decorative knight">
     </p>
     `,
     methods: {
@@ -468,7 +488,7 @@ var menuOverlay = {
                 "flex-direction": "column",
                 "justify-content": "space-around",
                 "align-items": "stretch",
-                "background-color": "#33333388",
+                "background-color": "rgba(51, 51, 51, 0.75)",
                 position: "absolute",
                 top: 0,
                 color: "#FFFFFF",
@@ -514,6 +534,7 @@ var chessPiece = {
         key="color+piece"
         v-on:click.stop="sendHighlights"
         v-bind:src="imageSrc"
+        v-bind:alt="'A ' + color + ' ' + piece"
     >
     `,
     methods: {
@@ -810,7 +831,7 @@ var infoPane = {
                 "flex-direction": "column",
                 "justify-content": "flex-start",
                 "align-items": "center",
-                "background-color": "#33333388",
+                "background-color": "rgba(51, 51, 51, 0.75)",
                 position: "absolute",
                 top: 0,
                 width: "100%",
@@ -903,14 +924,14 @@ var colorSelector = {
                 v-on:click="updateColor('white')"
                 title="Play as white"
             >
-                <img src="img/white_knight.svg" v-bind:style="buttonStyle">
+                <img src="img/white_knight.svg" v-bind:style="buttonStyle" alt="Play as white">
             </span>
             <span
                 v-bind:class="'colorButton' + (selected==='black'?' selected':'')"
                 v-on:click="updateColor('black')"
                 title="Play as black"
             >
-                <img src="img/black_knight.svg" v-bind:style="buttonStyle">
+                <img src="img/black_knight.svg" v-bind:style="buttonStyle" alt="Play as black">
             </span>
         </div>
     `,
@@ -949,14 +970,15 @@ var difficultySelector = {
     },
     template: `
         <div v-bind:style="wrapperStyle">
-            <div>Difficulty: {{ difficulty }}%</div>
+            <label for="difficultySelector">Difficulty: {{ difficulty }}%</label>
             <div v-bind:style="rowStyle">
                 0%
                 <input
                     v-on:input="updateDifficulty($event)"
                     type="range"
                     min=0
-                    max=100>
+                    max=100
+                    id="difficultySelector">
                 100%
             </div>
         </div>
