@@ -871,7 +871,7 @@ var infoPane = {
 
             <p>The idea was taken from Zach Gage's <a href="http://reallybadchess.com/">Really Bad Chess</a>. Really Bad Chess is a great game, however it is encumbered by advertising and is non-free software.</p>
 
-            <p>This app is free and open source under the MIT Licence, and the source can be found on <a href="">GitLab</a> or <a href="">GitHub</a>.</p>
+            <p>This app is free and open source under the MIT Licence, and the source can be found on <a href="https://gitlab.com/ollyfg/sheCs">GitLab</a> or <a href="https://github.com/ollyfg/sheCs">GitHub</a>.</p>
         </div>
         <menu-item
             v-bind:size="this.size"
