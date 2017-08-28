@@ -491,6 +491,7 @@ var menuOverlay = {
                 "background-color": "rgba(51, 51, 51, 0.75)",
                 position: "absolute",
                 top: 0,
+                left: 0,
                 color: "#FFFFFF",
                 width: "100%",
                 height: "100%",

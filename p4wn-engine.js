@@ -9,7 +9,7 @@
 /*Compatibility tricks:
  * backwards for old MSIEs (to 5.5)
  * sideways for seed command-line javascript.*/
-var p4_log;
+var p4_log = function () {};
 if (debug) {
     if (this.imports !== undefined &&
         this.printerr !== undefined){//seed or gjs
