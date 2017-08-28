@@ -25,14 +25,16 @@ window.onload = function() {
     p4_prepare(p4_state);
     store = new Vuex.Store({
         state: {
-            inplay: false,
-            highlights: {},
-            menuType: "welcome",
-            graveyard: {
+            inplay: false,      // Is the game in play?
+            highlights: {},     // Any highlighted squares on the board
+            menuType: "welcome",    // Type of menu showing. "none" to remove
+            graveyard: {        // List the dead pieces
                 black: [],
                 white: [],
             },
-            infoPane: false,
+            infoPane: false,    // Is the info pane visible
+            player_color: "white",  // Default to white
+            difficulty: 50,     // Balanced(ish)
         },
         mutations: {
             setPlaying: function (state, playing) {
@@ -63,6 +65,12 @@ window.onload = function() {
             toggleInfoPage: function (state) {
                 state.infoPane = !state.infoPane;
             },
+            updateColor: function (state, color) {
+                state.player_color = color;
+            },
+            updateDifficulty: function (state, difficulty) {
+                state.difficulty = difficulty;
+            },
         },
     });
     vm = new Vue({
@@ -72,8 +80,6 @@ window.onload = function() {
             boardSize: getDimension()[0], // The board width and height, in em
             horizontal: getDimension()[1],
             state: p4_state,
-            "player_color": "white",
-            difficulty: 50,    // 50 is balanced
         },
         computed: {
             style: function () {
@@ -92,8 +98,8 @@ window.onload = function() {
         },
         methods: {
             newGame: function () {
-                difficulty = this.difficulty
-                color = this.player_color;
+                var difficulty = this.$store.state.difficulty;
+                var color = this.$store.state.player_color;
                 var initialString = this.difficultyToFENString(difficulty, color);
                 var p4_state = p4_fen2state(initialString);
                 p4_prepare(p4_state);
@@ -102,6 +108,10 @@ window.onload = function() {
                 this.$store.commit("clearHighlights");
                 this.$store.commit("setMenu", "none");
                 this.$store.commit("exhumateAll");
+                if (color !== "white") {
+                    var computerMove = this.state.findmove(2);
+                    this.state.move(computerMove[0], computerMove[1]);
+                }
             },
             pauseMenuClose: function () {
                 this.$store.commit("setMenu", "none");
@@ -176,7 +186,12 @@ window.onload = function() {
                 }
                 whitePieces.splice(4, 0, "king");
                 blackPieces.splice(12, 0, "king");
-                console.log("White won the toss " + wins[0] + " times, black won " + wins[1] + " times.")
+
+                // Should really make a logging wrapper that gets turned on/off
+                // by debug... Oh well.
+                if (debug) {
+                    console.log("White won the toss " + wins[0] + " times, black won " + wins[1] + " times.")
+                }
 
                 // Now we have the pieces, turn them into a FEN string
                 var whiteFENPieces = {
@@ -223,6 +238,8 @@ window.onload = function() {
             "menu-title": menuTitle,
             "menu-item": menuItem,
             "info-pane": infoPane,
+            "color-selector": colorSelector,
+            "difficulty-selector": difficultySelector,
         },
     });
 }
@@ -290,7 +307,7 @@ var graveyard = {
 
 // The title bar with menu button
 var titleBar = {
-    props: ["difficulty", "horizontal", "graveyard", "size"],
+    props: ["horizontal", "graveyard", "size"],
     data: function () {
         return {
             wrapperStyle: {
@@ -303,6 +320,9 @@ var titleBar = {
         };
     },
     computed: {
+        difficulty: function () {
+            return this.$store.state.difficulty;
+        },
         dynamicWrapperStyle: function () {
             if (this.horizontal) {
                 return {
@@ -364,7 +384,7 @@ var menuTitle = {
                 "background-color": "#333333",
                 padding: "0.5em 0",
                 "text-align": "center",
-                "margin-bottom": (this.size/2) + "em",
+                "margin": 0,
             };
         },
     },
@@ -393,6 +413,7 @@ var menuItem = {
                 "margin-top": 0,
                 "margin-bottom": 0,
                 cursor: "pointer",
+                "user-select": "none",
             };
         },
         leftMarkerStyle: function () {
@@ -411,6 +432,9 @@ var menuItem = {
                 "vertical-align": "bottom",
             };
         },
+        markerURL: function () {
+            return "img/" + this.$store.state.player_color + "_pawn.svg";
+        },
     },
     template: `
     <p
@@ -419,9 +443,9 @@ var menuItem = {
         v-on:mouseout="setSideMargin(1)"
         v-on:click.stop="onClick"
     >
-        <img src="img/white_pawn.svg" v-bind:style="leftMarkerStyle">
+        <img v-bind:src="markerURL" v-bind:style="leftMarkerStyle">
         <slot></slot>
-        <img src="img/white_pawn.svg" v-bind:style="rightMarkerStyle">
+        <img v-bind:src="markerURL" v-bind:style="rightMarkerStyle">
     </p>
     `,
     methods: {
@@ -564,7 +588,7 @@ var chessSquare = {
 
 // The chess board
 var chessBoard = {
-    props: ["size", "state", "player_color", "graveyard"],
+    props: ["size", "state", "graveyard"],
     data: function() {
         return {
             "style": {
@@ -594,6 +618,9 @@ var chessBoard = {
                 width: (this.size * 8) + "em",
                 width: (this.size * 8) + "em",
             };
+        },
+        player_color: function () {
+            return this.$store.state.player_color;
         },
         board: function() {
             // Make our diplay board from p4wn's board state
@@ -845,3 +872,98 @@ var infoPane = {
         "menu-item": menuItem,
     },
 };
+
+// The color selector
+var colorSelector = {
+    props: ["size"],
+    computed: {
+        wrapperStyle: function () {
+            return {
+                "width": "100%",
+                "display": "flex",
+                "justify-content": "center",
+                "align-items": "center",
+                "user-select": "none",
+            };
+        },
+        buttonStyle: function () {
+            return {
+                width: this.size + "em",
+                height: this.size + "em",
+            };
+        },
+        selected: function () {
+            return this.$store.state.player_color;
+        },
+    },
+    template: `
+        <div v-bind:style="wrapperStyle">
+            <span
+                v-bind:class="'colorButton' + (selected==='white'?' selected':'')"
+                v-on:click="updateColor('white')"
+                title="Play as white"
+            >
+                <img src="img/white_knight.svg" v-bind:style="buttonStyle">
+            </span>
+            <span
+                v-bind:class="'colorButton' + (selected==='black'?' selected':'')"
+                v-on:click="updateColor('black')"
+                title="Play as black"
+            >
+                <img src="img/black_knight.svg" v-bind:style="buttonStyle">
+            </span>
+        </div>
+    `,
+    methods: {
+        updateColor: function (color) {
+            this.$store.commit("updateColor", color);
+        }
+    },
+}
+
+// The difficulty slider
+var difficultySelector = {
+    props: ["size"],
+    computed: {
+        wrapperStyle: function () {
+            return {
+                "width": "100%",
+                "display": "flex",
+                "flex-direction": "column",
+                "justify-content": "center",
+                "align-items": "center",
+            };
+        },
+        rowStyle: function () {
+            return {
+                display: "flex",
+                "flex-direction": "row",
+                "justify-content": "center",
+                "align-items": "center",
+                "user-select": "none",
+            };
+        },
+        difficulty: function () {
+            return this.$store.state.difficulty;
+        },
+    },
+    template: `
+        <div v-bind:style="wrapperStyle">
+            <div>Difficulty: {{ difficulty }}%</div>
+            <div v-bind:style="rowStyle">
+                0%
+                <input
+                    v-on:input="updateDifficulty($event)"
+                    type="range"
+                    min=0
+                    max=100>
+                100%
+            </div>
+        </div>
+    `,
+    methods: {
+        updateDifficulty: function (event) {
+            this.$store.commit("updateDifficulty", event.target.value);
+        }
+    },
+}

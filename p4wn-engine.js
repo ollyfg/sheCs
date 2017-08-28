@@ -10,18 +10,20 @@
  * backwards for old MSIEs (to 5.5)
  * sideways for seed command-line javascript.*/
 var p4_log;
-if (this.imports !== undefined &&
-    this.printerr !== undefined){//seed or gjs
-    p4_log = function(){
-        var args = Array.prototype.slice.call(arguments);
-        printerr(args.join(', '));
-    };
-}
-else if (this.console === undefined){//MSIE
-    p4_log = function(){};
-}
-else {
-    p4_log = function(){console.log.apply(console, arguments);};
+if (debug) {
+    if (this.imports !== undefined &&
+        this.printerr !== undefined){//seed or gjs
+        p4_log = function(){
+            var args = Array.prototype.slice.call(arguments);
+            printerr(args.join(', '));
+        };
+    }
+    else if (this.console === undefined){//MSIE
+        p4_log = function(){};
+    }
+    else {
+        p4_log = function(){console.log.apply(console, arguments);};
+    }
 }
 
 /*MSIE Date.now backport */

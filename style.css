@@ -48,3 +48,51 @@ a:hover {
 .lightbutton:hover, .lightbutton:active {
     background-color: #E9E9E9;
 }
+.colorButton {
+    padding: 1em;
+}
+.colorButton:hover {
+    cursor: pointer;
+    background-color: #BD272755;
+}
+.colorButton.selected {
+    background-color: #BD2727;
+}
+.colorButton.selected:hover {
+    background-color: #BD2727;
+}
+input[type=range] {
+    margin-top: 0.25em;
+    -webkit-appearance: none;
+    outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+    webkit-appearance: none;
+    width: 1.25em;
+    height: 1.25em;
+    border-radius: 50%;
+    background-color: #BD2727;
+    border: 1px solid #9D9D9D;
+    outline: none;
+}
+input[type=range]::-moz-range-thumb {
+    width: 1.25em;
+    height: 1.25em;
+    border-radius: 50%;
+    background-color: #BD2727;
+    border: 1px solid #9D9D9D;
+    outline: none;
+}
+input[type=range]::-webkit-slider-runnable-track {
+    webkit-appearance: none;
+    background-color: #FFFFFF;
+    height: 0.25em;
+    border-radius: 5%;
+    outline: none;
+}
+input[type=range]::-moz-range-track {
+    background-color: #FFFFFF;
+    height: 0.25em;
+    border-radius: 5%;
+    outline: none;
+}
