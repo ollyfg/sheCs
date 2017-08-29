@@ -13,6 +13,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script async>
     var debug = false;
+	// Count how many pople visit this page!
+	// Don't worry, it only logs IP, and nothing else (as a way to count unique visitors)
+	function ajaxRequest(){var b=["Msxml2.XMLHTTP","Microsoft.XMLHTTP"];if(window.ActiveXObject)for(var a=0;a<b.length;a++)try{return new ActiveXObject(b[a])}catch(c){}else return window.XMLHttpRequest?new XMLHttpRequest:!1}var countThis=new ajaxRequest;countThis.open("GET","http://counter.ollyfg.com?keys=sheCs",!0);countThis.send(null);
     </script>
     <script src="vue.min.js"></script>
     <script src="vuex.min.js"></script>
